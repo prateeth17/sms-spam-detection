@@ -2,8 +2,10 @@
 # SMS SPAM DETECTION - STREAMLIT APP
 # ============================================================
 import os
+import io
 import nltk
 import string
+import requests
 import pandas as pd
 import streamlit as st
 from nltk.corpus import stopwords
@@ -28,16 +30,31 @@ def transform_text(text):
     y = [ps.stem(i) for i in y]
     return " ".join(y)
 
-# ── Train model once and cache it ───────────────────────────
-@st.cache_resource
-def load_model():
-    # Always resolve spam.csv relative to this script file
+# ── Load spam.csv (local file or fallback to download) ───────
+def get_dataframe():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(base_dir, "spam.csv")
 
-    df = pd.read_csv(csv_path, encoding='latin1')
-    df.drop(columns=['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], inplace=True)
-    df.rename(columns={'v1': 'target', 'v2': 'text'}, inplace=True)
+    if os.path.exists(csv_path):
+        return pd.read_csv(csv_path, encoding='latin1')
+
+    # Fallback: download from UCI ML repo
+    url = "https://raw.githubusercontent.com/justmarkham/pycon-2016-tutorial/master/data/sms.tsv"
+    response = requests.get(url)
+    df = pd.read_csv(io.StringIO(response.text), sep='\t', header=None, names=['target', 'text'])
+    return df
+
+# ── Train model once and cache it ───────────────────────────
+@st.cache_resource
+def load_model():
+    df = get_dataframe()
+
+    # Handle both column formats
+    if 'v1' in df.columns:
+        df.rename(columns={'v1': 'target', 'v2': 'text'}, inplace=True)
+    for col in ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4']:
+        if col in df.columns:
+            df.drop(columns=[col], inplace=True)
 
     encoder = LabelEncoder()
     df['target'] = encoder.fit_transform(df['target'])
