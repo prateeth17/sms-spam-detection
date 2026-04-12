@@ -1,6 +1,7 @@
 # ============================================================
 # SMS SPAM DETECTION - STREAMLIT APP
 # ============================================================
+import os
 import nltk
 import string
 import pandas as pd
@@ -30,7 +31,11 @@ def transform_text(text):
 # ── Train model once and cache it ───────────────────────────
 @st.cache_resource
 def load_model():
-    df = pd.read_csv("spam.csv", encoding='latin1')
+    # Always resolve spam.csv relative to this script file
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base_dir, "spam.csv")
+
+    df = pd.read_csv(csv_path, encoding='latin1')
     df.drop(columns=['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], inplace=True)
     df.rename(columns={'v1': 'target', 'v2': 'text'}, inplace=True)
 
